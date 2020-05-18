@@ -3,6 +3,7 @@ Author: Shreyas Agnihotri, Dartmouth CS61, Spring 2020
 
 Add config.js file to root directory
 To run: nodemon api.js <local|sunapee>
+Then: make calls to http://localhost:3000
 Assumes database table has been created (code in Lab 3.sql)
 App will use the database credentials and port stored in config.js for local or sunapee server
 Insomnia used to test endpoints
@@ -58,6 +59,12 @@ router.get('/', (req, res) => {
   res.send("Yo! This my API. Call it right, or don't call it at all!");
 });
 
+const Roles = {
+  PLEDGER: 'Pledger',
+  ADMIN: 'Admin',
+  NON_PROFIT: 'NonProfit',
+};
+
 // Returns request with auth credentials removed and password hashed
 const clean = (req) => {
   delete req.body.AuthUsername;
@@ -72,34 +79,49 @@ const clean = (req) => {
 };
 
 // Check for user log-in, admin status, and personal rights
-const isPasswordCorrect = (req, user) => bcrypt.compareSync(req.body.AuthPassword, user.Password);
-const isUserAdmin = (user) => user.IsAdmin;
-const isUserSearched = (user, req) => user.ID == req.params.id;
+const isPasswordCorrect = (req, password) => bcrypt.compareSync(req.body.AuthPassword, password);
+// const isUserAdmin = (user) => user.IsAdmin;
+// const isUserSearched = (user, req) => user.ID == req.params.id;
 
 // Combine validation functions into one & output response parameters
-const validateUser = (e, r, f, res, req, adminOnly = true) => {
+const validateUser = (e, r, f, res, req) => {
   const user = r[0];
   if (!user) {
     return [400, 'Username not found', null];
   }
-  if (!isPasswordCorrect(req, user)) {
-    return [400, 'Incorrect password', null];
+
+  const [adminPassword, pledgerPassword, nonProfitPassword] = [user.AdminHashedPassword, user.PledgerHashedPassword, user.NonProfitHashedPassword];
+  if (adminPassword) {
+    if (isPasswordCorrect(req, adminPassword)) {
+      return [null, null, Roles.ADMIN];
+    }
+  } else if (pledgerPassword) {
+    if (isPasswordCorrect(req, pledgerPassword)) {
+      return [null, null, Roles.PLEDGER];
+    }
+  } else if (nonProfitPassword) {
+    if (isPasswordCorrect(req, nonProfitPassword)) {
+      return [null, null, Roles.NON_PROFIT];
+    }
   }
-  if (!isUserAdmin(user) && (adminOnly || !isUserSearched(user, req))) {
-    return [400, 'You do not have admin access', null];
-  }
-  return [null, null, null];
+  return [400, 'Incorrect password', null];
 };
 
+const selectAccounts = `(SELECT AdminHashedPassword FROM Dubois_sp20.Admins Where AdminUsername = 'thanh')
+                        UNION
+                        (SELECT PledgerHashedPassword FROM Dubois_sp20.Pledgers Where PledgerUsername = 'thanh') 
+                        UNION
+                        (SELECT NonProfitHashedPasswoard FROM Dubois_sp20.NonProfits Where NonProfitUsername = 'thanh');`;
+
 // GET - read data from database, return status code 200 if successful
-router.get('/api/employees', (req, res) => {
-  global.connection.query('SELECT * FROM nyc_inspections.Employees WHERE Username = ?', [req.body.AuthUsername],
+router.get('/api/funds', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
     (e, r, f) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
-      // get all employees (limited to first 10 here), return status code 200
-      return global.connection.query('SELECT * FROM nyc_inspections.Employees LIMIT 10',
+      // get all funds, return status code 200
+      return global.connection.query('SELECT * FROM Dubois_sp20.Funds',
         (error, results) => {
           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
           return res.send(JSON.stringify({ status: 200, error: null, response: results }));

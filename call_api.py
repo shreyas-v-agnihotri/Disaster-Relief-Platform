@@ -52,6 +52,8 @@ if __name__ == '__main__':
 		# Sign user in
 		AuthUsername = input("\nUsername:\n> ")
 		AuthPassword = input("\nPassword:\n> ")
+		
+		# TODO: Press 1 for user, 2 for charity, 3 for admin
 
 		# Determine whether user should stay logged in
 		loggedIn = True
