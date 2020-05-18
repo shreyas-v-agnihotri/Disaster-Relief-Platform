@@ -2,9 +2,9 @@ const config = {
   sunapee: {
     database: {
       host: 'sunapee.cs.dartmouth.edu',
-      user: 'cs61sp20', // 'your sunapee username here'
-      password: 'cs61Rocks!', // 'your sunapee password here'
-      schema: 'nyc_inspections', // 'your sunapee default schema'
+      user: 'Dubois_sp20', // 'your sunapee username here'
+      password: '&Q$ke2Pk-h', // 'your sunapee password here'
+      schema: 'Dubois_sp20', // 'your sunapee default schema'
     },
     port: 3000,
   },
