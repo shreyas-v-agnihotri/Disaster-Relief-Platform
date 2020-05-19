@@ -9,7 +9,7 @@ INSERT INTO `Admins`(
     `AdminHashedPassword`
 )
 VALUES(	 # add some admin users that can modify the data base from the beginning
-	'thanh',
+	'admin',
     '$2b$10$g3K2sTwrNoe7CD4QELI2DehXL/11yM83RZ5CxTsVglQGBTHJF1qq.' # 'password' hashed
 );
 
