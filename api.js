@@ -214,13 +214,69 @@ router.get('/api/pledgers/:id', (req, res) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
-      if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.PLEDGER)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can GET in `Pledgers`', response: returnResponse }));
+      if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.PLEDGER)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or searched Pledger can GET in `Pledgers`', response: returnResponse }));
 
       // get the specified pledger, return status code 200
       return global.connection.query('SELECT * FROM Dubois_sp20.Pledgers WHERE PledgerID = ?', [req.params.id],
         (error, results) => {
           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+// PUT `Pledgers` - admins & the specified pledger can access - return status code 200 if successful
+router.put('/api/pledgers/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.PLEDGER)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or specified Pledger can PUT in `Pledgers`', response: returnResponse }));
+
+      // update a single pledger with ID = req.params.id on only the passed params, return status code 200 if successful, 400 if not
+      const request = clean(req);
+      return global.connection.query('UPDATE Dubois_sp20.Pledgers SET ? WHERE PledgerID = ?', [request.body, req.params.id],
+        (error) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: `here on a put -- update pledger with ID ${req.params.id}` }));
+        });
+    });
+});
+
+// POST `Pledgers` - admins only - return status code 200 if successful
+router.post('/api/pledgers', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `Pledgers`', response: returnResponse }));
+
+      // create a new fund, return status code 200 if successful, 400 if not
+      const request = clean(req);
+      return global.connection.query('INSERT INTO Dubois_sp20.Pledgers SET ?', [request.body],
+        (error) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: `here on a post -- create a new entry for ${req.body.PledgerUsername}` }));
+        });
+    });
+});
+
+// DELETE `Pledgers` - admins only - return status code 200 if successful
+router.delete('/api/pledgers/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `Pledgers`', response: returnResponse }));
+
+      // delete a single pledger with ID = req.params.id, return status code 200 if successful, 400 if not
+      return global.connection.query('DELETE FROM Dubois_sp20.Pledgers WHERE PledgerID = ?', [req.params.id],
+        (error) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove pledger with ID ${req.params.id}` }));
         });
     });
 });
