@@ -63,5 +63,3 @@ VALUES(
     'theredcrossiscool',
     '$2b$10$J.ZNeoFEaDWBx0C.Sav0fetYvQ3M8q0z2lPdaLPCk1Wqu5cmjRYlG' # 'redcrosspassword'
 );
-
-
