@@ -84,8 +84,8 @@ CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`Pledgers` (
   `PledgerLastName` VARCHAR(80) NOT NULL,
   `PledgerJoinDate` DATE NOT NULL,
   `PledgerEmail` VARCHAR(80) NOT NULL,
-  `PledgerPhoneNumber` INT NOT NULL,
-  `PledgerCreditCardNumber` INT NOT NULL,
+  `PledgerPhoneNumber` BIGINT NOT NULL,
+  `PledgerCreditCardNumber` BIGINT NOT NULL,
   `PledgerUsername` VARCHAR(80) NOT NULL,
   `PledgerHashedPassword` VARCHAR(100) NOT NULL,
   PRIMARY KEY (`PledgerID`))
