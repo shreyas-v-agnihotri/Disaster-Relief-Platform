@@ -1,13 +1,12 @@
-/* Node API
-Author: Shreyas Agnihotri, Thanh Nguyen Jr, Ayan Agarwal, Micahel Zhou
+/* Node API for Disaster Relief Platform (CS61 Final Project)
+Author: Shreyas Agnihotri, Thanh Nguyen Jr, Ayan Agarwal, Michael Zhou
 Dartmouth CS61, Spring 2020
 
 Add config.js file to root directory
-To run: nodemon api.js <local|sunapee>
+To run: `nodemon api.js sunapee`
 Then: make calls to http://localhost:3000
-Assumes database table has been created (code in Lab 3.sql)
-App will use the database credentials and port stored in config.js for local or sunapee server
-Insomnia used to test endpoints
+App will use the database credentials and port stored in config.js for sunapee server
+Insomnia / Postman used to test endpoints
 */
 
 /* eslint-disable eqeqeq */
@@ -51,11 +50,6 @@ router.use((req, res, next) => {
   next();
 });
 
-// set up routing
-// calls should be made to /api/employees with GET/PUT/POST/DELETE verbs
-// you can test GETs with a browser using URL http://localhost:3000/api/employees
-// or http://localhost:3000/api/employees/30075445
-// recommend Postman app for testing other verbs, find it at https://www.postman.com/
 router.get('/', (req, res) => {
   res.send("Yo! This my API. Call it right, or don't call it at all!");
 });
@@ -71,7 +65,7 @@ const clean = (req) => {
   delete req.body.AuthUsername;
   delete req.body.AuthPassword;
   if (req.body.Password) {
-    req.body.Password = bcrypt.hashSync(req.body.Password, 10, (error, hash) => {
+    req.body.Password = bcrypt.hashSync(req.body.Password, saltRounds, (error, hash) => {
       if (error) throw error;
       return (hash);
     });
@@ -79,10 +73,9 @@ const clean = (req) => {
   return req;
 };
 
-// Check for user log-in, admin status, and personal rights
+// Check for user log-in / if they are the user specified by id in the params
 const isPasswordCorrect = (req, password) => bcrypt.compareSync(req.body.AuthPassword, password);
-// const isUserAdmin = (user) => user.IsAdmin;
-// const isUserSearched = (user, req) => user.ID == req.params.id;
+const isUserSearched = (user, req) => user.ID == req.params.id;
 
 // Combine validation functions into one & output response parameters
 const validateUser = (e, r, f, res, req) => {
@@ -90,29 +83,23 @@ const validateUser = (e, r, f, res, req) => {
   if (!user) {
     return [400, 'Username not found', null];
   }
+  const [hashedPassword, role] = [user.HashedPassword, user.Role];
 
-  const [adminPassword, pledgerPassword, nonProfitPassword] = [user.AdminHashedPassword, user.PledgerHashedPassword, user.NonProfitHashedPassword];
-  if (adminPassword) {
-    if (isPasswordCorrect(req, adminPassword)) {
-      return [null, null, Roles.ADMIN];
-    }
-  } else if (pledgerPassword) {
-    if (isPasswordCorrect(req, pledgerPassword)) {
-      return [null, null, Roles.PLEDGER];
-    }
-  } else if (nonProfitPassword) {
-    if (isPasswordCorrect(req, nonProfitPassword)) {
-      return [null, null, Roles.NON_PROFIT];
-    }
+  if (isPasswordCorrect(req, hashedPassword)) {
+    if (isUserSearched(user, req)) return [null, null, {ROLE: role, IS_SEARCHED: true}]
+    return [null, null, {ROLE: role, IS_SEARCHED: false}];
   }
+
   return [400, 'Incorrect password', null];
 };
 
-const selectAccounts = `(SELECT AdminHashedPassword FROM Dubois_sp20.Admins Where AdminUsername = ?)
+const saltRounds = 10;
+
+const selectAccounts = `(SELECT AdminHashedPassword as HashedPassword, "Admin" as Role, AdminID as ID FROM Dubois_sp20.Admins Where AdminUsername = ?)
                         UNION
-                        (SELECT PledgerHashedPassword FROM Dubois_sp20.Pledgers Where PledgerUsername = ?)
+                        (SELECT PledgerHashedPassword as HashedPassword, "Pledger" as Role, PledgerID as ID FROM Dubois_sp20.Pledgers Where PledgerUsername = ?)
                         UNION
-                        (SELECT NonProfitHashedPassword FROM Dubois_sp20.NonProfits Where NonProfitUsername = ?);`;
+                        (SELECT NonProfitHashedPassword as HashedPassword, "NonProfit" as Role, NonProfitID as ID FROM Dubois_sp20.NonProfits Where NonProfitUsername = ?);`;
 
 // GET `Funds` - all 'roles' can access - return status code 200 if successful
 router.get('/api/funds', (req, res) => {
@@ -153,7 +140,7 @@ router.put('/api/funds/:id', (req, res) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
-      if (returnResponse !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can PUT in `Funds`', response: returnResponse }));
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can PUT in `Funds`', response: returnResponse }));
 
       // update a single fund with ID = req.params.id on only the passed params, return status code 200 if successful, 400 if not
       const request = clean(req);
@@ -172,7 +159,7 @@ router.post('/api/funds', (req, res) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
-      if (returnResponse !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `Funds`', response: returnResponse }));
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `Funds`', response: returnResponse }));
 
       // create a new fund, return status code 200 if successful, 400 if not
       const request = clean(req);
@@ -191,13 +178,49 @@ router.delete('/api/funds/:id', (req, res) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
-      if (returnResponse !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `Funds`', response: returnResponse }));
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `Funds`', response: returnResponse }));
 
       // delete a single fund with ID = req.params.id, return status code 200 if successful, 400 if not
       return global.connection.query('DELETE FROM Dubois_sp20.Funds WHERE FundID = ?', [req.params.id],
         (error) => {
           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove fund with ID ${req.params.id}` }));
+        });
+    });
+});
+
+// GET `Pledgers` - admins only - return status code 200 if successful
+router.get('/api/pledgers', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can GET in `Pledgers`', response: returnResponse }));
+
+      // get all pledgers, return status code 200
+      return global.connection.query('SELECT * FROM Dubois_sp20.Pledgers',
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+// GET `Pledgers` specific ID - admins & the specified pledger can access - return status code 200 if successful
+router.get('/api/pledgers/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.PLEDGER)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can GET in `Pledgers`', response: returnResponse }));
+
+      // get the specified pledger, return status code 200
+      return global.connection.query('SELECT * FROM Dubois_sp20.Pledgers WHERE PledgerID = ?', [req.params.id],
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
         });
     });
 });
