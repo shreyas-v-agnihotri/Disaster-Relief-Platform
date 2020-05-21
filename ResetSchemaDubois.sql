@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`Funds` (
   `FundName` VARCHAR(80) NOT NULL,
   `FundDescription` VARCHAR(200) NOT NULL,
   `FundAccessible` TINYINT NOT NULL DEFAULT 0,
-  `FundBalance` INT NOT NULL,
+  `FundBalance` FLOAT NOT NULL,
   PRIMARY KEY (`FundID`))
 ENGINE = InnoDB;
 
@@ -100,7 +100,7 @@ DROP TABLE IF EXISTS `Dubois_sp20`.`PledgersFunds` ;
 CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`PledgersFunds` (
   `PledgerID` INT NOT NULL,
   `FundID` INT NOT NULL,
-  `PledgerFundBalance` INT NOT NULL,
+  `PledgerFundBalance` FLOAT NOT NULL,
   PRIMARY KEY (`PledgerID`, `FundID`),
   INDEX `fk_Pledgers_has_Funds_Funds1_idx` (`FundID` ASC),
   INDEX `fk_Pledgers_has_Funds_Pledgers1_idx` (`PledgerID` ASC),
@@ -124,7 +124,7 @@ DROP TABLE IF EXISTS `Dubois_sp20`.`Withdrawals` ;
 
 CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`Withdrawals` (
   `WithdrawalID` INT NOT NULL AUTO_INCREMENT,
-  `WithdrawalAmount` INT NOT NULL,
+  `WithdrawalAmount` FLOAT NOT NULL,
   `WithdrawalDateTime` DATETIME NOT NULL,
   `NonProfitID` INT NOT NULL,
   `FundID` INT NOT NULL,
@@ -145,7 +145,7 @@ DROP TABLE IF EXISTS `Dubois_sp20`.`Pledges` ;
 
 CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`Pledges` (
   `PledgeID` INT NOT NULL AUTO_INCREMENT,
-  `PledgeAmount` INT NOT NULL,
+  `PledgeAmount` FLOAT NOT NULL,
   `PledgeDateTime` DATETIME NOT NULL,
   `PledgerID` INT NOT NULL,
   `FundID` INT NOT NULL,

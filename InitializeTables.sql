@@ -23,7 +23,7 @@ VALUES(
 	'Test Fund',
     'This is the description of the test fund.',
     FALSE,
-    1000
+    1000.00
 );
 
 INSERT INTO `Pledgers`(
