@@ -117,11 +117,22 @@ const selectAccounts = `(SELECT AdminHashedPassword as HashedPassword, "Admin" a
                         (SELECT NonProfitHashedPassword as HashedPassword, "NonProfit" as Role, NonProfitID as ID FROM Dubois_sp20.NonProfits Where NonProfitUsername = ?);`;
 
 // GET `Funds` - all 'roles' can access - return status code 200 if successful
+// If a NonProfitID is specified in the request body, only return the Funds
+// accessible to that NonProfit
 router.get('/api/funds', (req, res) => {
   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
     (e, r, f) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      // get all funds accessible to the NonProfit specified in the request body
+      if (req.body.NonProfitID) {
+        return global.connection.query('SELECT F.FundID, F.FundName, F.FundDescription, F.FundAccessible, F.FundBalance FROM Dubois_sp20.Funds F JOIN Dubois_sp20.NonProfitFunds NPF ON NPF.FundID WHERE NPF.NonProfitID = ?', [req.body.NonProfitID],
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+      }
 
       // get all funds, return status code 200
       return global.connection.query('SELECT * FROM Dubois_sp20.Funds',
@@ -370,7 +381,7 @@ router.post('/api/admins', (req, res) => {
     });
 });
 
-// DELETE `Pledgers` - admins only - return status code 200 if successful
+// DELETE `Admins` - admins only - return status code 200 if successful
 router.delete('/api/admins/:id', (req, res) => {
   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
     (e, r, f) => {
@@ -384,6 +395,98 @@ router.delete('/api/admins/:id', (req, res) => {
         (error) => {
           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove admin with ID ${req.params.id}` }));
+        });
+    });
+});
+
+// GET `NonProfits` - admins only - return status code 200 if successful
+router.get('/api/nonprofits', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can GET in `NonProfits`', response: returnResponse }));
+
+      // get all NonProfits, return status code 200
+      return global.connection.query('SELECT * FROM Dubois_sp20.NonProfits',
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+// GET `NonProfits` specific ID - admins & the specified NonProfit can access - return status code 200 if successful
+router.get('/api/nonprofits/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.NON_PROFIT)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or searched NonProfit can GET in `NonProfits`', response: returnResponse }));
+
+      // get the specified NonProfit, return status code 200
+      return global.connection.query('SELECT * FROM Dubois_sp20.NonProfits WHERE NonProfitID = ?', [req.params.id],
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+// PUT `NonProfits` - admins & the specified NonProfit can access - return status code 200 if successful
+router.put('/api/nonprofits/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.NON_PROFIT)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or specified NonProfit can PUT in `NonProfits`', response: returnResponse }));
+
+      // update a single pledger with ID = req.params.id on only the passed params, return status code 200 if successful, 400 if not
+      const request = clean(req);
+      return global.connection.query('UPDATE Dubois_sp20.NonProfits SET ? WHERE NonProfitID = ?', [request.body, req.params.id],
+        (error) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: `here on a put -- update NonProfit with ID ${req.params.id}` }));
+        });
+    });
+});
+
+// POST `NonProfits` - admins only - return status code 200 if successful
+router.post('/api/nonprofits', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `NonProfits`', response: returnResponse }));
+
+      // create a new NonProfit, return status code 200 if successful, 400 if not
+      const request = clean(req);
+      return global.connection.query('INSERT INTO Dubois_sp20.NonProfits SET ?', [request.body],
+        (error) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: `here on a post -- create a new entry for ${req.body.NonProfitName}` }));
+        });
+    });
+});
+
+// DELETE `NonProfits` - admins only - return status code 200 if successful
+router.delete('/api/nonprofits/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `NonProfits`', response: returnResponse }));
+
+      // delete a single NonProfit with ID = req.params.id, return status code 200 if successful, 400 if not
+      return global.connection.query('DELETE FROM Dubois_sp20.NonProfits WHERE NonProfitID = ?', [req.params.id],
+        (error) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove NonProfit with ID ${req.params.id}` }));
         });
     });
 });
