@@ -564,6 +564,17 @@ router.delete('/api/nonprofitfunds', (req, res) => {
     });
 });
 
+// GET `Role` - anyone - authenticates user and returns the role - return status code 200 if successful
+router.get('/api/role', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      return res.send(JSON.stringify({ status: 200, error: null, response: returnResponse.ROLE }));
+    });
+});
+
 // start server running on port 3000 (or whatever is set in env)
 app.use(express.static(`${__dirname}/`));
 app.use('/', router);
