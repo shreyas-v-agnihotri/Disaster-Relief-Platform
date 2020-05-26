@@ -23,7 +23,7 @@ VALUES(
 	'Test Fund',
     'This is the description of the test fund.',
     FALSE,
-    1000
+    1000.00
 );
 
 INSERT INTO `Pledgers`(
@@ -63,3 +63,16 @@ VALUES(
     'theredcrossiscool',
     '$2b$10$J.ZNeoFEaDWBx0C.Sav0fetYvQ3M8q0z2lPdaLPCk1Wqu5cmjRYlG' # 'redcrosspassword'
 );
+
+INSERT INTO `NonProfitFunds`(
+	`NonProfitID`,
+    `FundID`
+)
+VALUES(
+	1,
+    1
+);
+
+SELECT F.FundID, F.FundName, F.FundDescription, F.FundAccessible, F.FundBalance
+FROM Dubois_sp20.Funds F JOIN Dubois_sp20.NonProfitFunds NPF ON NPF.FundID
+WHERE NPF.NonProfitID = 1;
