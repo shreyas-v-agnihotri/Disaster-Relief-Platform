@@ -89,7 +89,7 @@ if __name__ == '__main__':
 				# Print list of funds for admin to see
 				action = 0
 				while action not in range(1, 8):
-					action = int(input("Press 1 to see funds\n"
+					action = int(input("\nPress 1 to see funds\n"
 						+ "Press 2 to see nonprofits\n"
 						+ "Press 3 to see pledgers\n"
 						+ "Press 4 to see admins\n"
