@@ -12,6 +12,7 @@ Insomnia / Postman used to test endpoints
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable max-len */
 /* eslint-disable no-console */
+/* eslint-disable eqeqeq */
 
 const express = require('express');
 const mysql = require('mysql');
@@ -88,7 +89,7 @@ const clean = (req) => {
 
 // Check for user log-in / if they are the user specified by id in the params
 const isPasswordCorrect = (req, password) => bcrypt.compareSync(req.body.AuthPassword, password);
-const isUserSearched = (user, req) => user.ID === req.params.id;
+const isUserSearched = (user, req) => user.ID == req.params.id;
 
 // Combine user authentication functions into one & output response parameters
 const validateUser = (e, r, f, res, req) => {
@@ -106,8 +107,7 @@ const validateUser = (e, r, f, res, req) => {
   }
 
   // Return role, ID, and whether user is searched
-  if (isUserSearched(user, req)) return [null, null, { ROLE: role, IS_SEARCHED: true, ID }]; // Check if user is searched
-  return [null, null, { ROLE: role, IS_SEARCHED: false, ID }];
+  return [null, null, { ROLE: role, IS_SEARCHED: isUserSearched(user, req), ID }];
 };
 
 const selectAccounts = `(SELECT AdminHashedPassword as HashedPassword, "Admin" as Role, AdminID as ID FROM Dubois_sp20.Admins Where AdminUsername = ?)
@@ -119,7 +119,7 @@ const selectAccounts = `(SELECT AdminHashedPassword as HashedPassword, "Admin" a
 /*
     GET Role
     Access: Admin, NonProfit, Pledger
-    Return: user's role
+    Return: user's role and ID
 */
 router.get('/api/role', (req, res) => {
   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
@@ -127,7 +127,7 @@ router.get('/api/role', (req, res) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
-      return res.send(JSON.stringify({ status: 200, error: null, response: returnResponse.ROLE }));
+      return res.send(JSON.stringify({ status: 200, error: null, response: { role: returnResponse.ROLE, ID: returnResponse.ID } }));
     });
 });
 
@@ -297,6 +297,33 @@ router.get('/api/pledges', (req, res) => {
 });
 
 /*
+    GET Pledges
+    Access: Pledger
+    Return: list of pledger's pledges
+*/
+router.get('/api/pledges/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      // Restrict access to Pledger searching for self
+      if ((returnResponse.ROLE !== Roles.PLEDGER) || !returnResponse.IS_SEARCHED) return res.send(JSON.stringify({ status: 400, error: 'Only Pledger can GET its own `Pledges`', response: returnResponse }));
+
+      const query = `SELECT PledgeDateTime, PledgeAmount, FundName
+                    FROM Pledges P JOIN Funds F USING(FundID)
+                    WHERE PledgerID = ?`;
+
+      // Get pledger's Pledges
+      return global.connection.query(query, [req.params.id],
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+/*
     POST Pledges
     Access: Pledger
     Return: confirmation with fund ID
@@ -352,6 +379,33 @@ router.get('/api/withdrawals', (req, res) => {
 });
 
 /*
+    GET Withdrawals
+    Access: NonProfit
+    Return: list of nonprofit's withdrawals
+*/
+router.get('/api/withdrawals/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      // Restrict access to NonProfit searching for self
+      if ((returnResponse.ROLE !== Roles.NON_PROFIT) || !returnResponse.IS_SEARCHED) return res.send(JSON.stringify({ status: 400, error: 'Only NonProfit can GET its own `Withdrawals`', response: returnResponse }));
+
+      const query = `SELECT WithdrawalDateTime, WithdrawalAmount, FundName
+                    FROM Withdrawals P JOIN Funds F USING(FundID)
+                    WHERE NonProfitID = ?`;
+
+      // Get nonprofit's Withdrawals
+      return global.connection.query(query, [req.params.id],
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+/*
     POST Withdrawals
     Access: NonProfit
     Return: confirmation with fund ID
@@ -393,352 +447,3 @@ app.listen(app.get('port'), () => {
   console.log(`Node server is running on port ${app.get('port')}`);
   console.log(`Environment is ${env}`);
 });
-
-
-// // GET `Funds` by ID - return status code 200 if successful
-// router.get('/api/funds/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       // get all funds, return status code 200
-//       return global.connection.query('SELECT * FROM Dubois_sp20.Funds WHERE FundID = ?', [req.params.id],
-//         (error, results) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
-//         });
-//     });
-// });
-
-// // POST `Funds` - admins only - return status code 200 if successful
-// router.post('/api/funds', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `Funds`', response: returnResponse }));
-
-//       // create a new fund, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('INSERT INTO Dubois_sp20.Funds SET ?', [request.body],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a post -- create a new entry for ${req.body.FundName}` }));
-//         });
-//     });
-// });
-
-// // DELETE `Funds` - admins only - return status code 200 if successful
-// router.delete('/api/funds/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `Funds`', response: returnResponse }));
-
-//       // delete a single fund with ID = req.params.id, return status code 200 if successful, 400 if not
-//       return global.connection.query('DELETE FROM Dubois_sp20.Funds WHERE FundID = ?', [req.params.id],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove fund with ID ${req.params.id}` }));
-//         });
-//     });
-// });
-
-// // GET `Pledgers` specific ID - admins & the specified pledger can access - return status code 200 if successful
-// router.get('/api/pledgers/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.PLEDGER)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or searched Pledger can GET in `Pledgers`', response: returnResponse }));
-
-//       // get the specified pledger, return status code 200
-//       return global.connection.query('SELECT * FROM Dubois_sp20.Pledgers WHERE PledgerID = ?', [req.params.id],
-//         (error, results) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
-//         });
-//     });
-// });
-
-// // PUT `Pledgers` - admins & the specified pledger can access - return status code 200 if successful
-// router.put('/api/pledgers/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.PLEDGER)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or specified Pledger can PUT in `Pledgers`', response: returnResponse }));
-
-//       // update a single pledger with ID = req.params.id on only the passed params, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('UPDATE Dubois_sp20.Pledgers SET ? WHERE PledgerID = ?', [request.body, req.params.id],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a put -- update pledger with ID ${req.params.id}` }));
-//         });
-//     });
-// });
-
-// // POST `Pledgers` - admins only - return status code 200 if successful
-// router.post('/api/pledgers', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `Pledgers`', response: returnResponse }));
-
-//       // create a new fund, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('INSERT INTO Dubois_sp20.Pledgers SET ?', [request.body],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a post -- create a new entry for ${req.body.PledgerUsername}` }));
-//         });
-//     });
-// });
-
-// // DELETE `Pledgers` - admins only - return status code 200 if successful
-// router.delete('/api/pledgers/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `Pledgers`', response: returnResponse }));
-
-//       // delete a single pledger with ID = req.params.id, return status code 200 if successful, 400 if not
-//       return global.connection.query('DELETE FROM Dubois_sp20.Pledgers WHERE PledgerID = ?', [req.params.id],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove pledger with ID ${req.params.id}` }));
-//         });
-//     });
-// });
-
-// // GET `Admins` specific ID - admins only - return status code 200 if successful
-// router.get('/api/admins/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can GET in `Admins`', response: returnResponse }));
-
-//       // get all admins, return status code 200
-//       return global.connection.query('SELECT * FROM Dubois_sp20.Admins WHERE AdminID = ?', [req.params.id],
-//         (error, results) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
-//         });
-//     });
-// });
-
-// // PUT `Admins` - admins only - return status code 200 if successful
-// router.put('/api/admins/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can PUT in `Admins`', response: returnResponse }));
-
-//       // update a single admin with ID = req.params.id on only the passed params, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('UPDATE Dubois_sp20.Admins SET ? WHERE AdminID = ?', [request.body, req.params.id],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a put -- update admin with ID ${req.params.id}` }));
-//         });
-//     });
-// });
-
-// // POST `Admins` - admins only - return status code 200 if successful
-// router.post('/api/admins', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `Admins`', response: returnResponse }));
-
-//       // create a new fund, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('INSERT INTO Dubois_sp20.Admins SET ?', [request.body],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a post -- create a new entry for ${req.body.AdminUsername}` }));
-//         });
-//     });
-// });
-
-// // DELETE `Admins` - admins only - return status code 200 if successful
-// router.delete('/api/admins/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `Admins`', response: returnResponse }));
-
-//       // delete a single pledger with ID = req.params.id, return status code 200 if successful, 400 if not
-//       return global.connection.query('DELETE FROM Dubois_sp20.Admins WHERE AdminID = ?', [req.params.id],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove admin with ID ${req.params.id}` }));
-//         });
-//     });
-// });
-
-// // GET `NonProfits` specific ID - admins & the specified NonProfit can access - return status code 200 if successful
-// router.get('/api/nonprofits/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.NON_PROFIT)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or searched NonProfit can GET in `NonProfits`', response: returnResponse }));
-
-//       // get the specified NonProfit, return status code 200
-//       return global.connection.query('SELECT * FROM Dubois_sp20.NonProfits WHERE NonProfitID = ?', [req.params.id],
-//         (error, results) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
-//         });
-//     });
-// });
-
-// // PUT `NonProfits` - admins & the specified NonProfit can access - return status code 200 if successful
-// router.put('/api/nonprofits/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.NON_PROFIT)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or specified NonProfit can PUT in `NonProfits`', response: returnResponse }));
-
-//       // update a single pledger with ID = req.params.id on only the passed params, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('UPDATE Dubois_sp20.NonProfits SET ? WHERE NonProfitID = ?', [request.body, req.params.id],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a put -- update NonProfit with ID ${req.params.id}` }));
-//         });
-//     });
-// });
-
-// // POST `NonProfits` - admins only - return status code 200 if successful
-// router.post('/api/nonprofits', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `NonProfits`', response: returnResponse }));
-
-//       // create a new NonProfit, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('INSERT INTO Dubois_sp20.NonProfits SET ?', [request.body],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a post -- create a new entry for ${req.body.NonProfitName}` }));
-//         });
-//     });
-// });
-
-// // DELETE `NonProfits` - admins only - return status code 200 if successful
-// router.delete('/api/nonprofits/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `NonProfits`', response: returnResponse }));
-
-//       // delete a single NonProfit with ID = req.params.id, return status code 200 if successful, 400 if not
-//       return global.connection.query('DELETE FROM Dubois_sp20.NonProfits WHERE NonProfitID = ?', [req.params.id],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove NonProfit with ID ${req.params.id}` }));
-//         });
-//     });
-// });
-
-// // GET `NonProfitFunds` - admins only - return status code 200 if successful
-// router.get('/api/nonprofitfunds', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can GET in `NonProfitFunds`', response: returnResponse }));
-
-//       // get all NonProfitFunds, return status code 200
-//       return global.connection.query('SELECT * FROM Dubois_sp20.NonProfitFunds',
-//         (error, results) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
-//         });
-//     });
-// });
-
-// // GET `NonProfitFunds` specific NonProfitID - admins & the specified NonProfit can access - return status code 200 if successful
-// router.get('/api/nonprofitfunds/:id', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN && !(returnResponse.IS_SEARCHED && returnResponse.ROLE === Roles.NON_PROFIT)) return res.send(JSON.stringify({ status: 400, error: 'Only admin user or searched NonProfit can GET in `NonProfitFunds`', response: returnResponse }));
-
-//       // get the specified NonProfitFund, return status code 200
-//       return global.connection.query('SELECT * FROM Dubois_sp20.NonProfitFunds WHERE NonProfitID = ?', [req.params.id],
-//         (error, results) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
-//         });
-//     });
-// });
-
-// // POST `NonProfitFunds` - admins only - return status code 200 if successful
-// router.post('/api/nonprofitfunds', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can POST in `NonProfitFunds`', response: returnResponse }));
-
-//       // create a new NonProfitFund entry, return status code 200 if successful, 400 if not
-//       const request = clean(req);
-//       return global.connection.query('INSERT INTO Dubois_sp20.NonProfitFunds SET ?', [request.body],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a post -- create a new entry for NonProfitID = ${req.body.NonProfitID}, FundID = ${req.body.FundID}` }));
-//         });
-//     });
-// });
-
-// // DELETE `NonProfitFunds` - admins only - return status code 200 if successful
-// router.delete('/api/nonprofitfunds', (req, res) => {
-//   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
-//     (e, r, f) => {
-//       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
-//       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
-
-//       if (returnResponse.ROLE !== Roles.ADMIN) return res.send(JSON.stringify({ status: 400, error: 'Only admin user can DELETE in `NonProfitFunds`', response: returnResponse }));
-
-//       // delete a single NonProfit with ID = req.params.id, return status code 200 if successful, 400 if not
-//       return global.connection.query('DELETE FROM Dubois_sp20.NonProfitFunds WHERE NonProfitID = ? AND FundID = ?', [req.body.NonProfitID, req.body.FundID],
-//         (error) => {
-//           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
-//           return res.send(JSON.stringify({ status: 200, error: null, response: `here on a delete -- remove row from NonProfitFunds where NonProfitID = ${req.body.NonProfitID}, FundID = ${req.body.FundID}` }));
-//         });
-//     });
-// });
