@@ -12,6 +12,7 @@ Insomnia / Postman used to test endpoints
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable max-len */
 /* eslint-disable no-console */
+/* eslint-disable eqeqeq */
 
 const express = require('express');
 const mysql = require('mysql');
@@ -88,7 +89,7 @@ const clean = (req) => {
 
 // Check for user log-in / if they are the user specified by id in the params
 const isPasswordCorrect = (req, password) => bcrypt.compareSync(req.body.AuthPassword, password);
-const isUserSearched = (user, req) => user.ID === req.params.id;
+const isUserSearched = (user, req) => user.ID == req.params.id;
 
 // Combine user authentication functions into one & output response parameters
 const validateUser = (e, r, f, res, req) => {
@@ -307,9 +308,9 @@ router.get('/api/pledges/:id', (req, res) => {
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
       // Restrict access to Pledger searching for self
-      if ((returnResponse.ROLE !== Roles.PLEDGER) || !returnResponse.IS_SEARCHED) return res.send(JSON.stringify({ status: 400, error: 'Only Pledger can GET in `Pledges/pledgerID`', response: returnResponse }));
+      if ((returnResponse.ROLE !== Roles.PLEDGER) || !returnResponse.IS_SEARCHED) return res.send(JSON.stringify({ status: 400, error: 'Only Pledger can GET its own `Pledges`', response: returnResponse }));
 
-      const query = `SELECT PledgeAmount, FundName
+      const query = `SELECT PledgeDateTime, PledgeAmount, FundName
                     FROM Pledges P JOIN Funds F USING(FundID)
                     WHERE PledgerID = ?`;
 
@@ -370,6 +371,33 @@ router.get('/api/withdrawals', (req, res) => {
 
       // Get all Withdrawals
       return global.connection.query('SELECT * FROM Dubois_sp20.Withdrawals',
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+/*
+    GET Withdrawals
+    Access: NonProfit
+    Return: list of nonprofit's withdrawals
+*/
+router.get('/api/withdrawals/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      // Restrict access to NonProfit searching for self
+      if ((returnResponse.ROLE !== Roles.NON_PROFIT) || !returnResponse.IS_SEARCHED) return res.send(JSON.stringify({ status: 400, error: 'Only NonProfit can GET its own `Withdrawals`', response: returnResponse }));
+
+      const query = `SELECT WithdrawalDateTime, WithdrawalAmount, FundName
+                    FROM Withdrawals P JOIN Funds F USING(FundID)
+                    WHERE NonProfitID = ?`;
+
+      // Get nonprofit's Withdrawals
+      return global.connection.query(query, [req.params.id],
         (error, results) => {
           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
