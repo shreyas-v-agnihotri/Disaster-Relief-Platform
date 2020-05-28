@@ -106,8 +106,7 @@ const validateUser = (e, r, f, res, req) => {
   }
 
   // Return role, ID, and whether user is searched
-  if (isUserSearched(user, req)) return [null, null, { ROLE: role, IS_SEARCHED: true, ID }]; // Check if user is searched
-  return [null, null, { ROLE: role, IS_SEARCHED: false, ID }];
+  return [null, null, { ROLE: role, IS_SEARCHED: isUserSearched(user, req), ID }];
 };
 
 const selectAccounts = `(SELECT AdminHashedPassword as HashedPassword, "Admin" as Role, AdminID as ID FROM Dubois_sp20.Admins Where AdminUsername = ?)
@@ -119,7 +118,7 @@ const selectAccounts = `(SELECT AdminHashedPassword as HashedPassword, "Admin" a
 /*
     GET Role
     Access: Admin, NonProfit, Pledger
-    Return: user's role
+    Return: user's role and ID
 */
 router.get('/api/role', (req, res) => {
   global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
@@ -127,7 +126,7 @@ router.get('/api/role', (req, res) => {
       const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
       if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
 
-      return res.send(JSON.stringify({ status: 200, error: null, response: returnResponse.ROLE }));
+      return res.send(JSON.stringify({ status: 200, error: null, response: { role: returnResponse.ROLE, ID: returnResponse.ID } }));
     });
 });
 
@@ -289,6 +288,33 @@ router.get('/api/pledges', (req, res) => {
 
       // Get all Pledges
       return global.connection.query('SELECT * FROM Dubois_sp20.Pledges',
+        (error, results) => {
+          if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
+          return res.send(JSON.stringify({ status: 200, error: null, response: results }));
+        });
+    });
+});
+
+/*
+    GET Pledges
+    Access: Pledger
+    Return: list of pledger's pledges
+*/
+router.get('/api/pledges/:id', (req, res) => {
+  global.connection.query(selectAccounts, [req.body.AuthUsername, req.body.AuthUsername, req.body.AuthUsername],
+    (e, r, f) => {
+      const [returnStatus, returnError, returnResponse] = validateUser(e, r, f, res, req);
+      if (returnStatus) return res.send(JSON.stringify({ status: returnStatus, error: returnError, response: returnResponse }));
+
+      // Restrict access to Pledger searching for self
+      if ((returnResponse.ROLE !== Roles.PLEDGER) || !returnResponse.IS_SEARCHED) return res.send(JSON.stringify({ status: 400, error: 'Only Pledger can GET in `Pledges/pledgerID`', response: returnResponse }));
+
+      const query = `SELECT PledgeAmount, FundName
+                    FROM Pledges P JOIN Funds F USING(FundID)
+                    WHERE PledgerID = ?`;
+
+      // Get pledger's Pledges
+      return global.connection.query(query, [req.params.id],
         (error, results) => {
           if (error) return res.send(JSON.stringify({ status: 400, error, response: null }));
           return res.send(JSON.stringify({ status: 200, error: null, response: results }));
