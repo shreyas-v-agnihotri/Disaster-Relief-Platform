@@ -93,31 +93,6 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `Dubois_sp20`.`PledgersFunds`
--- -----------------------------------------------------
-DROP TABLE IF EXISTS `Dubois_sp20`.`PledgersFunds` ;
-
-CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`PledgersFunds` (
-  `PledgerID` INT NOT NULL,
-  `FundID` INT NOT NULL,
-  `PledgerFundBalance` FLOAT NOT NULL,
-  PRIMARY KEY (`PledgerID`, `FundID`),
-  INDEX `fk_Pledgers_has_Funds_Funds1_idx` (`FundID` ASC),
-  INDEX `fk_Pledgers_has_Funds_Pledgers1_idx` (`PledgerID` ASC),
-  CONSTRAINT `fk_Pledgers_has_Funds_Pledgers1`
-    FOREIGN KEY (`PledgerID`)
-    REFERENCES `Dubois_sp20`.`Pledgers` (`PledgerID`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION,
-  CONSTRAINT `fk_Pledgers_has_Funds_Funds1`
-    FOREIGN KEY (`FundID`)
-    REFERENCES `Dubois_sp20`.`Funds` (`FundID`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
-
-
--- -----------------------------------------------------
 -- Table `Dubois_sp20`.`Withdrawals`
 -- -----------------------------------------------------
 DROP TABLE IF EXISTS `Dubois_sp20`.`Withdrawals` ;
@@ -149,13 +124,10 @@ CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`Pledges` (
   `PledgeDateTime` DATETIME NOT NULL,
   `PledgerID` INT NOT NULL,
   `FundID` INT NOT NULL,
+  INDEX(`PledgeID`, `FundID`),
   PRIMARY KEY (`PledgeID`, `PledgerID`, `FundID`),
-  INDEX `fk_Pledges_PledgersFunds1_idx` (`PledgerID` ASC, `FundID` ASC),
-  CONSTRAINT `fk_Pledges_PledgersFunds1`
-    FOREIGN KEY (`PledgerID` , `FundID`)
-    REFERENCES `Dubois_sp20`.`PledgersFunds` (`PledgerID` , `FundID`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
+  FOREIGN KEY (`FundID`) REFERENCES `Dubois_sp20`.`Funds` (`FundID`),
+  FOREIGN KEY (`PledgerID`) REFERENCES `Dubois_sp20`.`Pledgers` (`PledgerID`))
 ENGINE = InnoDB;
 
 
@@ -171,6 +143,30 @@ CREATE TABLE IF NOT EXISTS `Dubois_sp20`.`Admins` (
   PRIMARY KEY (`AdminID`))
 ENGINE = InnoDB;
 
+-- -----------------------------------------------------
+-- Triggers
+-- -----------------------------------------------------
+DELIMITER $$
+
+CREATE TRIGGER HandlePledge
+    AFTER INSERT
+    ON `Dubois_sp20`.`Pledges` FOR EACH ROW
+BEGIN
+    UPDATE Funds
+	SET FundBalance = FundBalance + NEW.PledgeAmount
+	WHERE FundID = NEW.FundID;
+END$$
+
+CREATE TRIGGER HandleWithdrawal
+    AFTER INSERT
+    ON `Dubois_sp20`.`Withdrawals` FOR EACH ROW
+BEGIN
+    UPDATE Funds
+	SET FundBalance = FundBalance - NEW.WithdrawalAmount
+	WHERE FundID = NEW.FundID;
+END$$
+
+DELIMITER ; 
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
