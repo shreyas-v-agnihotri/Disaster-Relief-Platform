@@ -1,7 +1,7 @@
 #
 # Client side to fetch data from a RESTful API. 
 # on the server side.
-# Author: Mike Zhou, Shreyas Agnihotri, Thanh Nguyen, Ayan Agarwal; Dartmouth CS61, Spring 2020
+# Author: Mike Zhou, Shreyas Agnihotri, Thanh Nguyen Jr, Ayan Agarwal; Dartmouth CS61, Spring 2020
 # Requires installation of mysql connector: pip install mysql-connector-python
 # 	also requires Requests: pip install requests
 # Based on: https://dev.mysql.com/doc/connector-python/en/connector-python-example-connecting.html
