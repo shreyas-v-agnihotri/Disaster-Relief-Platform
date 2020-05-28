@@ -45,11 +45,14 @@ def make_delete_call(url, data):
 def ending_actions():
 	endingAction = 0
 	while endingAction not in range(1, 4):
-		endingAction = int(input("\nHow would you like to continue?\n"
-			+ "Press 1 to perform another action\n"
-			+ "Press 2 to log out\n" 
-			+ "Press 3 to quit this program\n> "
-		))
+		try:
+			endingAction = int(input("\nHow would you like to continue?\n"
+				+ "Press 1 to perform another action\n"
+				+ "Press 2 to log out\n" 
+				+ "Press 3 to quit this program\n> "
+			))
+		except:
+			continue # user input not an int; ask user again
 
 	# Process exiting out of necessary loops
 	if endingAction == 1:
@@ -90,13 +93,16 @@ if __name__ == '__main__':
 		
 				action = 0
 				while action not in range(1, 8):
-					action = int(input("\nPress 1 to see funds\n"
+					try: 
+						action = int(input("\nPress 1 to see funds\n"
 						+ "Press 2 to see nonprofits\n"
 						+ "Press 3 to see pledgers\n"
 						+ "Press 4 to see admins\n"
 						+ "Press 5 to see pledges\n"
 						+ "Press 6 to see withdrawals\n"
 						+ "Press 7 to make a fund accessible/inaccessible\n> "))
+					except:
+						continue # input is not an int -- ask the user again
 
 				if action == 1: # see funds
 					funds_list = make_get_call(api + "funds", auth_body)
@@ -157,20 +163,22 @@ if __name__ == '__main__':
 
 					# make the call
 					toggle_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword, FundAccessible = fund_accessible)
-					resp = make_put_call(api + "funds/" + fund_id, toggle_body) 
+					resp = make_put_call(api + "funds/" + fund_id, toggle_body)
 					
 					if resp["status"] != 200:
 						print(resp["error"])
 					else:
-						print(f"\nSuccess! Modified fund {fund_id} and set accessibility to {bool(fund_accessible)}")
+						print(f"\nSuccess! Modified fund {fund_id} and set accessibility to {bool(int(fund_accessible))}")
 
 			
 			elif role == "Pledger":
-
 				action = 0
 				while action not in range(1, 3):
-					action = int(input("\nPress 1 to see past pledges\n"
-						+ "Press 2 to make a pledge\n> "))
+					try: 
+						action = int(input("\nPress 1 to see past pledges\n"
+							+ "Press 2 to make a pledge\n> "))
+					except:
+						continue # input not an int; ask user again
 
 				if action == 1: # see pledges 
 					pledges_list = make_get_call(api + "pledges/" + str(AuthID), auth_body)
@@ -201,15 +209,17 @@ if __name__ == '__main__':
 					if pledges_resp["status"] != 200:
 						print(pledges_resp["error"])
 					else:
-							print(f"\nSuccess! Added ${amount} to fund {fund_id}")
+						print(f"\nSuccess! Added ${amount} to fund {fund_id}")
 
 
 			elif role == "NonProfit":
-
 				action = 0
 				while action not in range(1, 3):
-					action = int(input("\nPress 1 to see past withdrawals\n"
-						+ "Press 2 to make a withdrawal\n> "))
+					try:
+						action = int(input("\nPress 1 to see past withdrawals\n"
+							+ "Press 2 to make a withdrawal\n> "))
+					except:
+						continue # input not an int; ask user to try again
 
 				if action == 1: # see withdrawals
 					withdrawals_list = make_get_call(api + "withdrawals/" + str(AuthID), auth_body)
