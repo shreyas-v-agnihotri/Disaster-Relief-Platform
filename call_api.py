@@ -22,6 +22,27 @@ api = 'http://localhost:3000/api/'
 def createJSON(**args):
 	return {key:val for key, val in args.items() if val != ''}
 
+def ending_actions():
+	endingAction = 0
+	while endingAction not in range(1, 4):
+		endingAction = int(input("\nEnter a number to select an action:\n"
+			+ "1 - Make another query\n"
+			+ "2 - Go back to log-in\n" 
+			+ "3 - Quit this program\n> "
+		))
+
+	# Process exiting out of necessary loops
+	if endingAction == 1:
+		loggedIn = True
+		continueProgram = True
+	if endingAction == 2:
+		loggedIn = False
+		continueProgram = True
+	if endingAction == 3:
+		loggedIn = False
+		continueProgram = False
+	return (continueProgram, loggedIn)
+
 # Makes read request with passed body
 def make_get_call(url, data):
 	resp = requests.get(url, json=data)
@@ -55,7 +76,7 @@ if __name__ == '__main__':
 		auth_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword)
 		role_resp = make_get_call(api + "role/", auth_body) # get back the role
 		if role_resp["status"] != 200: # have the user retry signing 
-			print("Username or Password incorrect. Try again please.\n")
+			print(role_resp["error"])
 			continue 
 
 		role = role_resp["response"]
@@ -66,57 +87,92 @@ if __name__ == '__main__':
 			# Display list of funds and prompt Admin to make fund accessible
 			if role == "Admin":
 				# Print list of funds for admin to see
-				funds_list = make_get_call(api + "funds", auth_body)
-				
-				fund_ids_set = set() # help validate existing fund later
-				print("\nFunds: ")
-				for fund in funds_list['response']:
-					fund_ids_set.add(str(fund['FundID']))
-					print(f"Fund ID: {fund['FundID']} \nFund Name: {fund['FundName']} \nFund Description: {fund['FundDescription']} \nFund Accessible: {bool(fund['FundAccessible'])} \nFund Balance: {fund['FundBalance']}")
-				
-				# get fund_id and change to accessibility from admin
-				fund_id = float('-inf')
-				while fund_id not in fund_ids_set:
-					fund_id = input("\nPlease enter a fund ID to switch on/off\n> ")
-				fund_accessible = -1
-				while fund_accessible != "0" and fund_accessible != "1":
-					fund_accessible = input("\nEnter 0 to turn off accessibility, 1 to turn on\n> ")
+				action = 0
+				while action not in range(1, 8):
+					action = int(input("Press 1 to see funds\n"
+						+ "Press 2 to see nonprofits\n"
+						+ "Press 3 to see pledgers\n"
+						+ "Press 4 to see admins\n"
+						+ "Press 5 to see pledges\n"
+						+ "Press 6 to see withdrawals\n"
+						+ "Press 7 to change a fund's accessibility\n> "))
+				if action == 1: # see funds
+					funds_list = make_get_call(api + "funds", auth_body)
+					
+					print("\nFunds: \n")
+					for fund in funds_list['response']:
+						print(f"Fund ID: {fund['FundID']} \nFund Name: {fund['FundName']} \nFund Description: {fund['FundDescription']} \nFund Accessible: {bool(fund['FundAccessible'])} \nFund Balance: {fund['FundBalance']}\n")
 
-				# make the call
-				toggle_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword, FundAccessible = fund_accessible)
-				resp = make_put_call(api + "funds/" + fund_id, toggle_body) 
-				
-				if resp["status"] != 200:
-					print("Error. Please try again.")
-				else:
-					print(f"\nSuccess! Modified fund {fund_id} and set accessibility to {bool(fund_accessible)}")
+				elif action == 2: # see nonprofits
+					nonprofits_list = make_get_call(api + "nonprofits", auth_body)
+					print("Nonprofits: \n")
+					for nonprofit in nonprofits_list['response']:
+						print(f"Nonprofit ID: {nonprofit['NonProfitID']} \nNonprofit Name: {nonprofit['NonProfitName']} \nNonprofit GuideStar: {nonprofit['NonProfitGuideStar']} \nNonprofit Join Date: {nonprofit['NonProfitJoinDate']} \nNonprofit Description: {nonprofit['NonProfitDescription']} \nNonprofit Username: {nonprofit['NonProfitUsername']} \nNonprofit Hashed Password: {nonprofit['NonProfitHashedPassword']}\n")
+					
+				elif action == 3: # see pledgers
+					pledgers_list = make_get_call(api + "pledgers", auth_body)
+					
+					print("\nPledgers: \n")
+					for pledger in pledgers_list['response']:
+						print(f"Pledger ID: {pledger['PledgerID']} \nPledger First Name: {pledger['PledgerFirstName']} \nPledger Last Name: {pledger['PledgerLastName']} \nPledger Join Date: {pledger['PledgerJoinDate']} \nPledger Email: {pledger['PledgerEmail']} \nPledger Phone Number: {pledger['PledgerPhoneNumber']} \nPledger Credit Card Number: {pledger['PledgerCreditCardNumber']} \nPledger Username: {pledger['PledgerUsername']} \nPledger Hashed Password: {pledger['PledgerHashedPassword']}\n")
 
-				endingAction = 0
-				while endingAction not in range(1, 4):
-					endingAction = int(input("\nEnter a number to select an action:\n"
-						+ "1 - Make another query\n"
-						+ "2 - Go back to log-in\n" 
-						+ "3 - Quit this program\n> "
-					))
+				elif action == 4: #see admins
+					admins_list = make_get_call(api + "admins", auth_body)
 
-				# Process exiting out of necessary loops
-				if endingAction == 1:
-					loggedIn = True
-				if endingAction == 2:
-					loggedIn = False
-				if endingAction == 3:
-					loggedIn = False
-					continueProgram = False
+					print("\nAdmins: \n")
+					for admin in admins_list['response']:
+						print(f"Admin ID: {admin['AdminID']} \nAdmin Username: {admin['AdminUsername']} \nAdmin Hashed Password: {admin['AdminHashedPassword']}\n")
+
+				elif action == 5: #see pledges
+					pledges_list = make_get_call(api + "pledges", auth_body)
+					
+					print("\nPledges: \n")
+					for pledge in pledges_list['response']:
+						print(f"Pledge ID: {pledge['PledgeID']} \nPledge Amount: {pledge['PledgeAmount']} \nPledge Date Time: {pledge['PledgeDateTime']} \nPledger ID: {pledge['PledgerID']} \nFund ID: {pledge['FundID']}\n")
+
+				elif action == 6: # see withdrawals
+					withdrawals_list = make_get_call(api + "withdrawals", auth_body)
+					print("\nWithdrawals: \n")
+					for withdrawal in withdrawals_list['response']:
+						print(f"Withdrawal ID: {withdrawal['WithdrawalID']} \nWithdrawal Amount: {withdrawal['WithdrawalAmount']} \nWithdrawal Date Time: {withdrawal['WithdrawalDateTime']} \nNonprofit ID: {withdrawal['NonProfitID']} \nFund ID: {withdrawal['FundID']}\n")
+
+				else: # action == 7 # change fund's accessibility
+					funds_list = make_get_call(api + "funds", auth_body)
+					
+					fund_ids_set = set() # help validate existing fund later
+					print("\nFunds: \n")
+					for fund in funds_list['response']:
+						fund_ids_set.add(str(fund['FundID']))
+						print(f"Fund ID: {fund['FundID']} \nFund Name: {fund['FundName']} \nFund Description: {fund['FundDescription']} \nFund Accessible: {bool(fund['FundAccessible'])} \nFund Balance: {fund['FundBalance']}\n")
+					
+					# get fund_id and change to accessibility from admin
+					fund_id = float('-inf')
+					while fund_id not in fund_ids_set:
+						fund_id = input("\nPlease enter a fund ID to switch on/off\n> ")
+					fund_accessible = -1
+					while fund_accessible != "0" and fund_accessible != "1":
+						fund_accessible = input("\nEnter 0 to turn off accessibility, 1 to turn on\n> ")
+
+					# make the call
+					toggle_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword, FundAccessible = fund_accessible)
+					resp = make_put_call(api + "funds/" + fund_id, toggle_body) 
+					
+					if resp["status"] != 200:
+						print(resp["error"])
+					else:
+						print(f"\nSuccess! Modified fund {fund_id} and set accessibility to {bool(fund_accessible)}")
+
+				(continueProgram, loggedIn) = ending_actions()
 
 			
 			elif role == "Pledger":
 				# Print list of funds for pledger to see
 				funds_list = make_get_call(api + "funds", auth_body)
 				fund_ids_set = set() # help validate existing fund later
-				print("\nFunds: ")
+				print("\nFunds: \n")
 				for fund in funds_list['response']:
 					fund_ids_set.add(str(fund['FundID']))
-					print(f"Fund ID: {fund['FundID']} \nFund Name: {fund['FundName']} \nFund Description: {fund['FundDescription']}")
+					print(f"Fund ID: {fund['FundID']} \nFund Name: {fund['FundName']} \nFund Description: {fund['FundDescription']}\n")
 
 				# get fund_id and amount to donate from user
 				fund_id = float('-inf')
@@ -125,63 +181,43 @@ if __name__ == '__main__':
 				amount = -1
 				while amount <= 0:
 					amount = round(float(input("\nPlease enter an amount to donate: \n> ")), 2)
-				pledges_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword, FundID = fund_id, Amount = amount)
-				print(make_put_call(api + "pledges/" + fund_id, pledges_body))
+				pledges_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword, FundID = fund_id, PledgeAmount = amount)
+				
+				pledges_resp = make_post_call(api + "pledges/", pledges_body)
+				if pledges_resp["status"] != 200:
+						print(pledges_resp["error"])
+				else:
+					print(pledges_resp["response"])
 
-				endingAction = 0
-				while endingAction not in range(1, 4):
-					endingAction = int(input("\nEnter a number to select an action:\n"
-						+ "1 - Make another query\n"
-						+ "2 - Go back to log-in\n" 
-						+ "3 - Quit this program\n> "
-					))
-
-				# Process exiting out of necessary loops
-				if endingAction == 1:
-					loggedIn = True
-				if endingAction == 2:
-					loggedIn = False
-				if endingAction == 3:
-					loggedIn = False
-					continueProgram = False
+				(continueProgram, loggedIn) = ending_actions()
 
 
 			else: # role == "NonProfit"
 				# Show funds that the nonprofit can access
-				print(make_put_call(api + "nonprofitfunds/", auth_body))
+				funds_list = make_get_call(api + "nonprofitfunds/", auth_body)
+				fund_ids_dict = {} # help validate existing fund later # map ID to amount for easy access later
+				print("\nFunds: \n")
+				for fund in funds_list['response']:
+					fund_ids_dict[str(fund['FundID'])] = float(fund['FundBalance'])
+					print(f"Fund ID: {fund['FundID']} \nFund Name: {fund['FundName']} \nFund Description: {fund['FundDescription']} \nFund Accessible: {bool(fund['FundAccessible'])} \nFund Balance: {fund['FundBalance']}\n")
 
 				# get fund_id and amount to withdraw from nonprofit
 				fund_id = float('-inf')
-				while fund_id not in fund_ids_set:
-					fund_id = input("\nPlease enter a fund ID to switch on/off\n> ")
+				while fund_id not in fund_ids_dict:
+					fund_id = input("\nPlease enter a fund ID to withdraw from\n> ")
 				amount = -1
-				while amount < 0:
-					amount = round(float(input("\nPlease enter an amount to donate: \n> ")), 2)
-				withdrawal_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword, FundID = fund_id, Amount = amount)
+				while amount <= 0 or amount > fund_ids_dict[fund_id]:
+					amount = round(float(input("\nPlease enter an amount to withdraw: \n> ")), 2)
+				withdrawal_body = createJSON(AuthUsername = AuthUsername, AuthPassword = AuthPassword, FundID = fund_id, WithdrawalAmount = amount)
 
-				print(make_put_call(api + "withdrawals/", withdrawal_body)) 
+				withdrawal_resp = make_post_call(api + "withdrawals/", withdrawal_body)
+				if withdrawal_resp["status"] != 200:
+						print(withdrawal_resp["error"])
+				else:
+					print(withdrawal_resp["response"])
 
-				endingAction = 0
-				while endingAction not in range(1, 4):
-					endingAction = int(input("\nEnter a number to select an action:\n"
-						+ "1 - Make another query\n"
-						+ "2 - Go back to log-in\n" 
-						+ "3 - Quit this program\n> "
-					))
+				(continueProgram, loggedIn) = ending_actions()
 
-				# Process exiting out of necessary loops
-				if endingAction == 1:
-					loggedIn = True
-				if endingAction == 2:
-					loggedIn = False
-				if endingAction == 3:
-					loggedIn = False
-					continueProgram = False
-
-
-
-
-			
 
 			# # GET (all)
 			# if querySelection == 1:
